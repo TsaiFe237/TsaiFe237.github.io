@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Traits Calendar</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #121212;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            color: #e0e0e0;
+        }
+        .app {
+            max-width: 1200px;
+            width: 100%;
+            background: #1e1e2f;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .calendar-wrapper {
+            flex: 1 1 600px;
+            padding: 30px 25px 25px;
+            min-width: 320px;
+            background: #1a1a2e;
+        }
+        .calendar-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #f0f0f0;
+            text-align: center;
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .calendar-header .month-year {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #f0f0f0;
+        }
+        .calendar-header .nav-btn {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #b0b0b0;
+            padding: 0 12px;
+            transition: color 0.2s;
+        }
+        .calendar-header .nav-btn:hover {
+            color: #4fc3f7;
+        }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-weight: 600;
+            color: #9e9e9e;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .calendar-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .week-row {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            position: relative;
+        }
+
+        .day-cell {
+            aspect-ratio: 1 / 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #2a2a3c;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s;
+            position: relative;
+            border: 2px solid transparent;
+            z-index: 1;
+        }
+        .day-cell:hover {
+            background: #3a3a4e;
+            transform: scale(1.02);
+        }
+        .day-cell.other-month {
+            background: #222233;
+            color: #777;
+        }
+        .day-cell.other-month:hover {
+            background: #2f2f44;
+        }
+
+        .day-cell.today {
+            border-color: #4fc3f7;
+            background: #1a3a5a;
+            box-shadow: 0 0 16px rgba(79, 195, 247, 0.25);
+            font-weight: 700;
+        }
+
+        .day-cell.selected {
+            transform: scale(1.08);
+            z-index: 2;
+            background: #1f3a4a;
+        }
+
+        .day-cell.multi-selected {
+            border-color: #4caf50;
+            background: rgba(76, 175, 80, 0.2);
+            box-shadow: 0 0 12px rgba(76, 175, 80, 0.3);
+        }
+
+        @property --angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        @keyframes flow-border {
+            to { --angle: 360deg; }
+        }
+
+        .day-cell.selected::before {
+            content: '';
+            position: absolute;
+            inset: -5px;
+            border-radius: 14px;
+            padding: 4px;
+            background: conic-gradient(from var(--angle), #4fc3f7, #b388ff, #4fc3f7);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            animation: flow-border 2s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+            box-shadow: 0 0 12px rgba(79, 195, 247, 0.6);
+        }
+
+        .day-cell.selected::after {
+            content: '';
+            position: absolute;
+            inset: -10px;
+            border-radius: 18px;
+            padding: 8px;
+            background: conic-gradient(from var(--angle), rgba(79,195,247,0.6), rgba(179,136,255,0.6), rgba(79,195,247,0.6));
+            filter: blur(8px);
+            animation: flow-border 2s linear infinite;
+            pointer-events: none;
+            z-index: -2;
+            opacity: 0.8;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+
+        .day-cell .day-number {
+            line-height: 1;
+        }
+        .day-cell .day-points {
+            font-size: 0.6rem;
+            color: #a0a0b0;
+            margin-top: 2px;
+            font-weight: 400;
+        }
+        .day-cell .dot-indicator {
+            position: absolute;
+            bottom: 4px;
+            font-size: 1.2rem;
+            color: #66bb6a;
+            line-height: 1;
+            z-index: 3;
+        }
+
+        .week-summary {
+            text-align: right;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #c0c0d0;
+            padding: 4px 8px 0 0;
+            border-bottom: 1px dashed #3a3a4e;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .week-summary .week-label {
+            color: #888;
+            font-weight: 400;
+        }
+        .week-summary .week-points {
+            font-weight: 700;
+            color: #4fc3f7;
+        }
+
+        .month-total {
+            margin-top: 20px;
+            padding: 12px 16px;
+            background: #252540;
+            border-radius: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+        .month-total .total-label {
+            color: #aaa;
+        }
+        .month-total .total-points {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #4fc3f7;
+        }
+
+        /* Панель */
+        .rewards-panel {
+            flex: 0 0 400px;
+            background: #1a1a2e;
+            padding: 30px 25px 25px;
+            border-left: 1px solid #2a2a42;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+        .rewards-panel .panel-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #f0f0f0;
+            margin-bottom: 6px;
+        }
+        .rewards-panel .panel-date {
+            font-size: 0.95rem;
+            color: #aaa;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #2a2a42;
+            padding-bottom: 12px;
+        }
+        .rewards-panel .panel-empty {
+            color: #777;
+            text-align: center;
+            margin-top: 40px;
+            font-style: italic;
+        }
+
+        .reward-card {
+            background: #252540;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            transition: background 0.2s;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .reward-card .reward-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1 1 100%;
+        }
+        .reward-card .reward-icon {
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+        .reward-card .reward-label {
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+        .reward-card .reward-max {
+            font-size: 0.7rem;
+            color: #888;
+            margin-left: 4px;
+            font-weight: 400;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: auto;
+        }
+        .input-group input {
+            width: 70px;
+            padding: 6px 4px;
+            border: 1px solid #3a3a5a;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: center;
+            font-weight: 500;
+            background: #2a2a44;
+            color: #f0f0f0;
+            transition: border 0.2s;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #4fc3f7;
+            box-shadow: 0 0 0 3px rgba(79,195,247,0.2);
+        }
+        .input-group input::-webkit-outer-spin-button,
+        .input-group input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .input-group input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .input-group .btn-step {
+            background: #2a2a44;
+            border: 1px solid #3a3a5a;
+            color: #e0e0e0;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, border-color 0.15s;
+            line-height: 1;
+        }
+        .input-group .btn-step:hover {
+            background: #3a3a5a;
+            border-color: #4fc3f7;
+        }
+        .input-group .btn-step:active {
+            background: #4a4a6a;
+        }
+
+        .input-group .btn-extreme {
+            background: #1f2a3a;
+            border: 1px solid #3a3a5a;
+            color: #b0b0b0;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            line-height: 1;
+            padding: 0;
+        }
+        .input-group .btn-extreme:hover {
+            background: #3a4a5a;
+            border-color: #4fc3f7;
+            color: #f0f0f0;
+        }
+        .input-group .btn-extreme:active {
+            background: #4a5a6a;
+        }
+
+        .panel-total {
+            margin-top: 16px;
+            padding: 16px;
+            background: #252550;
+            border-radius: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+        }
+        .panel-total .total-label {
+            color: #ccc;
+        }
+        .panel-total .total-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #4fc3f7;
+        }
+
+        .weekly-hint {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: -6px;
+            margin-bottom: 12px;
+            padding-left: 4px;
+        }
+
+        .toggle-row {
+            background: #252540;
+            border-radius: 12px;
+            padding: 10px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        .toggle-row .toggle-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toggle-row .toggle-info .toggle-icon {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        .toggle-row .toggle-info .toggle-label {
+            font-weight: 500;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+        }
+        .toggle-row .toggle-info .toggle-label.off {
+            color: #888;
+        }
+
+        .toggle-switch-mini {
+            position: relative;
+            width: 42px;
+            height: 22px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .toggle-switch-mini input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-switch-mini .toggle-slider-mini {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #4a4a5a;
+            border-radius: 22px;
+            transition: background 0.3s;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .toggle-switch-mini .toggle-slider-mini::before {
+            content: '';
+            position: absolute;
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: #888;
+            border-radius: 50%;
+            transition: transform 0.3s, background 0.3s;
+        }
+        .toggle-switch-mini input:checked + .toggle-slider-mini {
+            background: #4caf50;
+        }
+        .toggle-switch-mini input:checked + .toggle-slider-mini::before {
+            transform: translateX(20px);
+            background: white;
+        }
+
+        .sunday-bonus {
+            font-size: 0.75rem;
+            color: #ffb74d;
+            margin-top: -6px;
+            margin-bottom: 10px;
+            padding-left: 4px;
+            font-weight: 500;
+        }
+        .sunday-bonus.off {
+            color: #666;
+            text-decoration: line-through;
+        }
+
+        .reset-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .reset-btn, .undo-btn {
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+            border: 1px solid;
+        }
+        .reset-btn {
+            background: #3a2a2a;
+            border-color: #6a3a3a;
+            color: #ff6b6b;
+        }
+        .reset-btn:hover {
+            background: #4a3a3a;
+            border-color: #ff6b6b;
+        }
+        .undo-btn {
+            background: #2a3a3a;
+            border-color: #4a7a6a;
+            color: #66d9a0;
+        }
+        .undo-btn:hover {
+            background: #3a4a4a;
+            border-color: #66d9a0;
+        }
+        .reset-btn:disabled, .undo-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #2a2a2a;
+            border-color: #444;
+            color: #666;
+        }
+
+        .edit-btn {
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            flex: 1;
+            min-width: 100px;
+            text-align: center;
+            border: 1px solid #4a7a9a;
+            background: #2a3a4a;
+            color: #6bb8ff;
+        }
+        .edit-btn:hover {
+            background: #3a4a5a;
+            border-color: #6bb8ff;
+        }
+
+        .edit-panel {
+            background: #1f2a3a;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #3a5a6a;
+        }
+        .edit-panel .edit-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f0f0f0;
+            margin-bottom: 12px;
+        }
+        .edit-panel .edit-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .edit-panel .edit-actions button {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .edit-panel .edit-actions .apply-btn {
+            background: #4caf50;
+            color: white;
+        }
+        .edit-panel .edit-actions .apply-btn:hover {
+            background: #66bb6a;
+        }
+        .edit-panel .edit-actions .cancel-btn {
+            background: #5a3a3a;
+            color: #ff6b6b;
+        }
+        .edit-panel .edit-actions .cancel-btn:hover {
+            background: #6a4a4a;
+        }
+
+        .raid-progress {
+            font-size: 0.8rem;
+            color: #aaa;
+            text-align: right;
+            margin-top: -6px;
+            margin-bottom: 6px;
+        }
+
+        @media (max-width: 800px) {
+            .app {
+                flex-direction: column;
+            }
+            .rewards-panel {
+                flex: 1 1 auto;
+                border-left: none;
+                border-top: 1px solid #2a2a42;
+                min-height: 280px;
+            }
+            .day-cell {
+                aspect-ratio: 1 / 1;
+                font-size: 0.9rem;
+            }
+        }
+        @media (max-width: 480px) {
+            .calendar-wrapper {
+                padding: 15px 12px;
+            }
+            .rewards-panel {
+                padding: 20px 15px;
+            }
+            .reward-card {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .input-group {
+                margin-left: 0;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Календарь -->
+        <div class="calendar-wrapper">
+            <div class="calendar-title">Traits Calendar</div>
+            <div class="calendar-header">
+                <button class="nav-btn" id="prevMonthBtn">‹</button>
+                <span class="month-year" id="monthYearDisplay">Май 2025</span>
+                <button class="nav-btn" id="nextMonthBtn">›</button>
+            </div>
+            <div class="weekdays">
+                <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+            <div class="month-total">
+                <span class="total-label">🏆 Всего TRR за месяц</span>
+                <span class="total-points" id="monthTotalPoints">0</span>
+            </div>
+        </div>
+
+        <!-- Панель наград -->
+        <div class="rewards-panel" id="rewardsPanel">
+            <div class="panel-title">🏆 Rewards</div>
+            <div class="panel-date" id="panelDate">Выберите день</div>
+            <div id="panelContent">
+                <div class="panel-empty">Нажмите на день в календаре</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- Состояние ----------
+            let currentDate = new Date();
+            let selectedDate = null;
+            let multiSelected = [];
+            let lastClickedDate = null;
+            let lastResetSnapshot = null;
+            const STORAGE_KEY = 'challengeData';
+            const RAID_MAX_PER_WEEK = 50;
+
+            // ---------- DOM ----------
+            const monthYearDisplay = document.getElementById('monthYearDisplay');
+            const calendarGrid = document.getElementById('calendarGrid');
+            const prevMonthBtn = document.getElementById('prevMonthBtn');
+            const nextMonthBtn = document.getElementById('nextMonthBtn');
+            const panelDate = document.getElementById('panelDate');
+            const panelContent = document.getElementById('panelContent');
+            const monthTotalPoints = document.getElementById('monthTotalPoints');
+
+            // ---------- Работа с данными ----------
+            function loadData() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    return raw ? JSON.parse(raw) : {};
+                } catch {
+                    return {};
+                }
+            }
+            function saveData(data) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            }
+
+            function getDayData(dateStr) {
+                const data = loadData();
+                const def = { regular: 0, daily: 0, weekly: 0, gold: 0, bounty: 0, raid: 0, calendar: 0, qb: 0, dquest: 0, wquest: 0 };
+                const existing = data[dateStr];
+                if (existing) {
+                    return {
+                        regular: existing.regular || 0,
+                        daily: existing.daily || 0,
+                        weekly: existing.weekly || 0,
+                        gold: existing.gold || 0,
+                        bounty: existing.bounty || 0,
+                        raid: existing.raid || 0,
+                        calendar: existing.calendar !== undefined ? existing.calendar : 0,
+                        qb: existing.qb !== undefined ? existing.qb : 0,
+                        dquest: existing.dquest !== undefined ? existing.dquest : 0,
+                        wquest: existing.wquest !== undefined ? existing.wquest : 0
+                    };
+                }
+                return def;
+            }
+
+            function setDayData(dateStr, regular, daily, weekly, gold, bounty, raid, calendar, qb, dquest, wquest) {
+                const data = loadData();
+                if (regular === 0 && daily === 0 && weekly === 0 && gold === 0 && bounty === 0 && raid === 0 &&
+                    calendar === 0 && qb === 0 && dquest === 0 && wquest === 0) {
+                    delete data[dateStr];
+                } else {
+                    data[dateStr] = { regular, daily, weekly, gold, bounty, raid, calendar, qb, dquest, wquest };
+                }
+                saveData(data);
+            }
+
+            // ---------- Вспомогательные функции для недель ----------
+            function getMonday(date) {
+                const d = new Date(date);
+                const day = d.getDay();
+                const diff = d.getDate() - (day === 0 ? 6 : day - 1);
+                d.setDate(diff);
+                d.setHours(0,0,0,0);
+                return d;
+            }
+            function getWeekDays(monday) {
+                const days = [];
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date(monday);
+                    d.setDate(monday.getDate() + i);
+                    days.push(d);
+                }
+                return days;
+            }
+
+            function moveWeeklyToDate(dateStr, value) {
+                const parts = dateStr.split('-');
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                const monday = getMonday(d);
+                const weekDays = getWeekDays(monday);
+                const data = loadData();
+                weekDays.forEach(day => {
+                    const key = formatDateKey(day.getFullYear(), day.getMonth(), day.getDate());
+                    if (data[key]) {
+                        data[key].weekly = 0;
+                    }
+                });
+                if (value === 1) {
+                    if (!data[dateStr]) {
+                        data[dateStr] = { regular: 0, daily: 0, weekly: 0, gold: 0, bounty: 0, raid: 0, calendar: 0, qb: 0, dquest: 0, wquest: 0 };
+                    }
+                    data[dateStr].weekly = 1;
+                }
+                saveData(data);
+            }
+
+            function getWeeklyForWeek(dateStr) {
+                const parts = dateStr.split('-');
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                const monday = getMonday(d);
+                const weekDays = getWeekDays(monday);
+                const data = loadData();
+                for (let day of weekDays) {
+                    const key = formatDateKey(day.getFullYear(), day.getMonth(), day.getDate());
+                    if (data[key] && data[key].weekly === 1) {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+
+            // ---------- Raid Shop: сумма за неделю ----------
+            function getWeekRaidSum(dateStr) {
+                const parts = dateStr.split('-');
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                const monday = getMonday(d);
+                const weekDays = getWeekDays(monday);
+                const data = loadData();
+                let sum = 0;
+                weekDays.forEach(day => {
+                    const key = formatDateKey(day.getFullYear(), day.getMonth(), day.getDate());
+                    if (data[key]) {
+                        sum += data[key].raid || 0;
+                    }
+                });
+                return sum;
+            }
+
+            // ---------- Расчёт очков ----------
+            function calcDayPoints(regular, daily, weekly, gold, bounty, raid, calendar, qb, dquest, wquest, dayOfWeek) {
+                let multiplier = 1;
+                if (dayOfWeek === 0 || dayOfWeek === 6) multiplier = 2;
+                const base = (regular * 3 + daily * 10) * multiplier;
+                const goldPoints = gold * 1;
+                const bountyPoints = Math.floor(bounty / 10);
+                const raidPoints = raid * 1;
+                let calendarBonus = 0;
+                let qbBonus = 0;
+                let dquestBonus = (dquest === 1) ? 5 : 0;
+                let wquestBonus = 0;
+                if (dayOfWeek === 0) {
+                    if (calendar === 1) calendarBonus = 25;
+                    if (qb === 1) qbBonus = 25;
+                    if (wquest === 1) wquestBonus = 15;
+                }
+                return base + (weekly === 1 ? 50 : 0) + goldPoints + bountyPoints + raidPoints + calendarBonus + qbBonus + dquestBonus + wquestBonus;
+            }
+
+            function calcBasePoints(regular, daily, dayOfWeek) {
+                let multiplier = 1;
+                if (dayOfWeek === 0 || dayOfWeek === 6) multiplier = 2;
+                return (regular * 3 + daily * 10) * multiplier;
+            }
+
+            function formatDateKey(year, month, day) {
+                return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            }
+            function formatDisplayDate(dateStr) {
+                const parts = dateStr.split('-');
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+            }
+
+            // ---------- Рендер календаря ----------
+            function renderCalendar(year, month) {
+                const firstDay = new Date(year, month, 1);
+                let firstWeekday = firstDay.getDay();
+                let startOffset = (firstWeekday === 0) ? 6 : firstWeekday - 1;
+                const startDate = new Date(year, month, 1 - startOffset);
+                const endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + 41);
+
+                const today = new Date();
+                const todayStr = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+                let cells = [];
+                let current = new Date(startDate);
+                for (let i = 0; i < 42; i++) {
+                    const y = current.getFullYear();
+                    const m = current.getMonth();
+                    const d = current.getDate();
+                    const dateStr = formatDateKey(y, m, d);
+                    const isCurrentMonth = (y === year && m === month);
+                    cells.push({
+                        year: y,
+                        month: m,
+                        day: d,
+                        dateStr: dateStr,
+                        isCurrentMonth: isCurrentMonth,
+                        dayOfWeek: current.getDay()
+                    });
+                    current.setDate(current.getDate() + 1);
+                }
+
+                let weeks = [];
+                for (let i = 0; i < cells.length; i += 7) {
+                    weeks.push(cells.slice(i, i + 7));
+                }
+
+                let html = '';
+                const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+                ];
+                monthYearDisplay.textContent = `${monthNames[month]} ${year}`;
+
+                let totalMonthPoints = 0;
+
+                weeks.forEach((week, weekIndex) => {
+                    let weekBasePoints = 0;
+                    let weeklyActive = 0;
+                    let cellsHtml = '';
+
+                    week.forEach(cell => {
+                        const dateStr = cell.dateStr;
+                        const dayData = getDayData(dateStr);
+                        const regular = dayData.regular || 0;
+                        const daily = dayData.daily || 0;
+                        const weekly = dayData.weekly || 0;
+                        const gold = dayData.gold || 0;
+                        const bounty = dayData.bounty || 0;
+                        const raid = dayData.raid || 0;
+                        const calendar = dayData.calendar !== undefined ? dayData.calendar : 0;
+                        const qb = dayData.qb !== undefined ? dayData.qb : 0;
+                        const dquest = dayData.dquest !== undefined ? dayData.dquest : 0;
+                        const wquest = dayData.wquest !== undefined ? dayData.wquest : 0;
+                        const points = calcDayPoints(regular, daily, weekly, gold, bounty, raid, calendar, qb, dquest, wquest, cell.dayOfWeek);
+                        const base = calcBasePoints(regular, daily, cell.dayOfWeek);
+                        weekBasePoints += base;
+                        const goldPoints = gold * 1;
+                        const bountyPoints = Math.floor(bounty / 10);
+                        const raidPoints = raid * 1;
+                        let calendarBonus = 0;
+                        let qbBonus = 0;
+                        let dquestBonus = (dquest === 1) ? 5 : 0;
+                        let wquestBonus = 0;
+                        if (cell.dayOfWeek === 0) {
+                            if (calendar === 1) calendarBonus = 25;
+                            if (qb === 1) qbBonus = 25;
+                            if (wquest === 1) wquestBonus = 15;
+                        }
+                        weekBasePoints += goldPoints + bountyPoints + raidPoints + calendarBonus + qbBonus + dquestBonus + wquestBonus;
+                        if (weekly === 1) weeklyActive = 1;
+
+                        const isToday = (dateStr === todayStr);
+                        const hasData = (regular > 0 || daily > 0 || weekly > 0 || gold > 0 || bounty > 0 || raid > 0 || calendarBonus > 0 || qbBonus > 0 || dquestBonus > 0 || wquestBonus > 0);
+                        let classes = 'day-cell';
+                        if (!cell.isCurrentMonth) classes += ' other-month';
+                        if (isToday) classes += ' today';
+                        if (hasData) classes += ' has-data';
+                        if (multiSelected.length > 1 && multiSelected.includes(dateStr)) {
+                            classes += ' multi-selected';
+                        }
+
+                        let dotIndicator = hasData ? `<span class="dot-indicator">•</span>` : '';
+
+                        cellsHtml += `<div class="${classes}" data-date="${dateStr}">
+                                        <span class="day-number">${cell.day}</span>
+                                        ${hasData ? `<span class="day-points">${points} TRR</span>` : ''}
+                                        ${dotIndicator}
+                                     </div>`;
+                    });
+
+                    const weekTotal = weekBasePoints + (weeklyActive ? 50 : 0);
+
+                    html += `<div class="week-row" data-week-index="${weekIndex}">${cellsHtml}</div>`;
+                    html += `<div class="week-summary">
+                                <span class="week-label">Неделя ${weekIndex + 1}</span>
+                                <span class="week-points">${weekTotal} TRR</span>
+                             </div>`;
+                });
+
+                calendarGrid.innerHTML = html;
+
+                // Общий итог за месяц
+                let monthBase = 0;
+                let monthWeeklyBonus = 0;
+                for (let d = 1; d <= new Date(year, month + 1, 0).getDate(); d++) {
+                    const dateStr = formatDateKey(year, month, d);
+                    const dayData = getDayData(dateStr);
+                    const regular = dayData.regular || 0;
+                    const daily = dayData.daily || 0;
+                    const gold = dayData.gold || 0;
+                    const bounty = dayData.bounty || 0;
+                    const raid = dayData.raid || 0;
+                    const calendar = dayData.calendar !== undefined ? dayData.calendar : 0;
+                    const qb = dayData.qb !== undefined ? dayData.qb : 0;
+                    const dquest = dayData.dquest !== undefined ? dayData.dquest : 0;
+                    const wquest = dayData.wquest !== undefined ? dayData.wquest : 0;
+                    const dateObj = new Date(year, month, d);
+                    const dow = dateObj.getDay();
+                    const base = calcBasePoints(regular, daily, dow);
+                    const goldPoints = gold * 1;
+                    const bountyPoints = Math.floor(bounty / 10);
+                    const raidPoints = raid * 1;
+                    let calendarBonus = 0;
+                    let qbBonus = 0;
+                    let dquestBonus = (dquest === 1) ? 5 : 0;
+                    let wquestBonus = 0;
+                    if (dow === 0) {
+                        if (calendar === 1) calendarBonus = 25;
+                        if (qb === 1) qbBonus = 25;
+                        if (wquest === 1) wquestBonus = 15;
+                    }
+                    monthBase += base + goldPoints + bountyPoints + raidPoints + calendarBonus + qbBonus + dquestBonus + wquestBonus;
+                }
+                const firstMonday = getMonday(new Date(year, month, 1));
+                let iter = new Date(firstMonday);
+                while (iter <= new Date(year, month, new Date(year, month + 1, 0).getDate())) {
+                    const weekDays = getWeekDays(iter);
+                    let hasMonthDay = false;
+                    for (let wd of weekDays) {
+                        if (wd.getFullYear() === year && wd.getMonth() === month) {
+                            hasMonthDay = true;
+                            break;
+                        }
+                    }
+                    if (hasMonthDay) {
+                        const sampleDate = weekDays[0];
+                        const sampleKey = formatDateKey(sampleDate.getFullYear(), sampleDate.getMonth(), sampleDate.getDate());
+                        if (getWeeklyForWeek(sampleKey) === 1) {
+                            monthWeeklyBonus += 50;
+                        }
+                    }
+                    iter.setDate(iter.getDate() + 7);
+                }
+                const monthTotal = monthBase + monthWeeklyBonus;
+                monthTotalPoints.textContent = monthTotal;
+
+                // Обработчики кликов
+                document.querySelectorAll('.day-cell:not(.empty)').forEach(cell => {
+                    cell.addEventListener('click', function(event) {
+                        const dateStr = this.dataset.date;
+                        if (!dateStr) return;
+                        const shift = event.shiftKey;
+                        const ctrl = event.ctrlKey || event.metaKey;
+
+                        if (shift && lastClickedDate) {
+                            const allDates = document.querySelectorAll('.day-cell:not(.empty)');
+                            const dateList = Array.from(allDates).map(el => el.dataset.date).filter(d => d);
+                            const idx1 = dateList.indexOf(lastClickedDate);
+                            const idx2 = dateList.indexOf(dateStr);
+                            if (idx1 !== -1 && idx2 !== -1) {
+                                const start = Math.min(idx1, idx2);
+                                const end = Math.max(idx1, idx2);
+                                const range = dateList.slice(start, end + 1);
+                                multiSelected = Array.from(new Set([...multiSelected, ...range]));
+                            }
+                        } else if (ctrl) {
+                            const idx = multiSelected.indexOf(dateStr);
+                            if (idx === -1) {
+                                multiSelected.push(dateStr);
+                            } else {
+                                multiSelected.splice(idx, 1);
+                            }
+                        } else {
+                            multiSelected = [dateStr];
+                            selectedDate = dateStr;
+                        }
+                        lastClickedDate = dateStr;
+                        lastResetSnapshot = null;
+                        renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+                        if (selectedDate) {
+                            const selCell = document.querySelector(`.day-cell[data-date="${selectedDate}"]`);
+                            if (selCell) selCell.classList.add('selected');
+                        }
+                        if (multiSelected.length === 1) {
+                            selectedDate = multiSelected[0];
+                            updatePanel(selectedDate);
+                        } else if (multiSelected.length > 1) {
+                            showMultiSelectionPanel(multiSelected);
+                        } else {
+                            showEmptyPanel();
+                        }
+                    });
+                });
+
+                if (selectedDate) {
+                    const selCell = document.querySelector(`.day-cell[data-date="${selectedDate}"]`);
+                    if (selCell) selCell.classList.add('selected');
+                }
+            }
+
+            // ---------- Обнуление дней ----------
+            function resetDays(dates) {
+                if (!dates || dates.length === 0) return;
+                const snapshot = {};
+                dates.forEach(dateStr => {
+                    const data = getDayData(dateStr);
+                    snapshot[dateStr] = { ...data };
+                });
+                lastResetSnapshot = {
+                    dates: [...dates],
+                    data: snapshot
+                };
+
+                dates.forEach(dateStr => {
+                    setDayData(dateStr, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                });
+
+                refreshAfterChange(null);
+            }
+
+            function undoReset() {
+                if (!lastResetSnapshot) return;
+                const { dates, data } = lastResetSnapshot;
+                dates.forEach(dateStr => {
+                    const d = data[dateStr];
+                    if (d) {
+                        setDayData(dateStr, d.regular, d.daily, d.weekly, d.gold, d.bounty, d.raid, d.calendar, d.qb, d.dquest, d.wquest);
+                    }
+                });
+                lastResetSnapshot = null;
+                refreshAfterChange(null);
+            }
+
+            function arraysEqual(a, b) {
+                if (a.length !== b.length) return false;
+                const sortedA = [...a].sort();
+                const sortedB = [...b].sort();
+                return sortedA.every((val, idx) => val === sortedB[idx]);
+            }
+
+            // ---------- Панель множественного выбора ----------
+            function showMultiSelectionPanel(dates) {
+                panelDate.textContent = `Выбрано ${dates.length} дней`;
+                let html = `
+                    <div style="margin-bottom:12px; color:#ccc;">
+                        Выделено ${dates.length} дней.
+                    </div>
+                    <div class="reset-buttons">
+                        <button class="reset-btn" id="resetSelectedBtn">🗑 Обнулить выбранные</button>
+                        ${lastResetSnapshot && arraysEqual(lastResetSnapshot.dates, dates) ? `<button class="undo-btn" id="undoSelectedBtn">↩ Отменить обнуление</button>` : ''}
+                        <button class="edit-btn" id="editSelectedBtn">✏️ Редактировать</button>
+                    </div>
+                `;
+                panelContent.innerHTML = html;
+
+                document.getElementById('resetSelectedBtn').addEventListener('click', function() {
+                    resetDays(dates);
+                });
+                const undoBtn = document.getElementById('undoSelectedBtn');
+                if (undoBtn) {
+                    undoBtn.addEventListener('click', function() {
+                        undoReset();
+                    });
+                }
+                document.getElementById('editSelectedBtn').addEventListener('click', function() {
+                    showEditPanel(dates);
+                });
+            }
+
+            // ---------- Режим редактирования для нескольких дней ----------
+            function showEditPanel(dates) {
+                const sampleDate = dates[0];
+                const sampleData = getDayData(sampleDate);
+                const parts = sampleDate.split('-');
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                const isSunday = d.getDay() === 0;
+
+                function createInputGroup(id, value, min, max) {
+                    return `
+                        <div class="input-group">
+                            <button class="btn-extreme" data-target="${id}" data-value="0">0</button>
+                            <button class="btn-step" data-target="${id}" data-step="-1">−</button>
+                            <input type="number" id="${id}" min="${min}" max="${max}" value="${value}" />
+                            <button class="btn-step" data-target="${id}" data-step="1">+</button>
+                            <button class="btn-extreme" data-target="${id}" data-value="${max}">max</button>
+                        </div>
+                    `;
+                }
+
+                let html = `
+                    <div class="edit-panel">
+                        <div class="edit-title">✏️ Редактирование ${dates.length} дней</div>
+                        <div class="reward-card">
+                            <div class="reward-info">
+                                <span class="reward-icon">📅</span>
+                                <span class="reward-label">Regular Challenge (0-10)</span>
+                            </div>
+                            ${createInputGroup('editRegular', sampleData.regular || 0, 0, 10)}
+                        </div>
+                        <div class="reward-card">
+                            <div class="reward-info">
+                                <span class="reward-icon">📅</span>
+                                <span class="reward-label">Daily Challenge (0-1)</span>
+                            </div>
+                            ${createInputGroup('editDaily', sampleData.daily || 0, 0, 1)}
+                        </div>
+                        <div class="reward-card">
+                            <div class="reward-info">
+                                <span class="reward-icon">📅</span>
+                                <span class="reward-label">Weekly Challenge (0-1 за неделю)</span>
+                            </div>
+                            ${createInputGroup('editWeekly', sampleData.weekly || 0, 0, 1)}
+                        </div>
+                        <div class="reward-card">
+                            <div class="reward-info">
+                                <span class="reward-icon">🪙</span>
+                                <span class="reward-label">Gold Shop (0-25)</span>
+                            </div>
+                            ${createInputGroup('editGold', sampleData.gold || 0, 0, 25)}
+                        </div>
+                        <div class="reward-card">
+                            <div class="reward-info">
+                                <span class="reward-icon">💰</span>
+                                <span class="reward-label">Bounty (0-700)</span>
+                            </div>
+                            ${createInputGroup('editBounty', sampleData.bounty || 0, 0, 700)}
+                        </div>
+                        <div class="reward-card">
+                            <div class="reward-info">
+                                <span class="reward-icon">⚔️</span>
+                                <span class="reward-label">Raid Shop (0-50 за неделю)</span>
+                            </div>
+                            ${createInputGroup('editRaid', sampleData.raid || 0, 0, 50)}
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <span class="toggle-icon">🎯</span>
+                                <span class="toggle-label ${sampleData.dquest ? '' : 'off'}">DQuest (ежедневный +5 TRR)</span>
+                            </div>
+                            <label class="toggle-switch-mini">
+                                <input type="checkbox" id="editDquest" ${sampleData.dquest ? 'checked' : ''}>
+                                <span class="toggle-slider-mini"></span>
+                            </label>
+                        </div>
+                        ${isSunday ? `
+                            <div class="toggle-row">
+                                <div class="toggle-info">
+                                    <span class="toggle-icon">📅</span>
+                                    <span class="toggle-label ${sampleData.calendar ? '' : 'off'}">Calendar бонус (+25 TRR)</span>
+                                </div>
+                                <label class="toggle-switch-mini">
+                                    <input type="checkbox" id="editCalendar" ${sampleData.calendar ? 'checked' : ''}>
+                                    <span class="toggle-slider-mini"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-row">
+                                <div class="toggle-info">
+                                    <span class="toggle-icon">🏅</span>
+                                    <span class="toggle-label ${sampleData.qb ? '' : 'off'}">QB бонус (+25 TRR)</span>
+                                </div>
+                                <label class="toggle-switch-mini">
+                                    <input type="checkbox" id="editQb" ${sampleData.qb ? 'checked' : ''}>
+                                    <span class="toggle-slider-mini"></span>
+                                </label>
+                            </div>
+                            <div class="toggle-row">
+                                <div class="toggle-info">
+                                    <span class="toggle-icon">⭐</span>
+                                    <span class="toggle-label ${sampleData.wquest ? '' : 'off'}">Weekly Quest (+15 TRR)</span>
+                                </div>
+                                <label class="toggle-switch-mini">
+                                    <input type="checkbox" id="editWquest" ${sampleData.wquest ? 'checked' : ''}>
+                                    <span class="toggle-slider-mini"></span>
+                                </label>
+                            </div>
+                        ` : ''}
+                        <div class="edit-actions">
+                            <button class="apply-btn" id="applyEditBtn">Применить</button>
+                            <button class="cancel-btn" id="cancelEditBtn">Отмена</button>
+                        </div>
+                    </div>
+                `;
+                panelContent.innerHTML = html;
+
+                document.querySelectorAll('.btn-step').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const targetId = this.dataset.target;
+                        const step = parseInt(this.dataset.step);
+                        const input = document.getElementById(targetId);
+                        if (input) {
+                            let val = parseInt(input.value) || 0;
+                            const min = parseInt(input.min) || 0;
+                            const max = parseInt(input.max) || 100;
+                            val = Math.min(max, Math.max(min, val + step));
+                            input.value = val;
+                            input.dispatchEvent(new Event('input'));
+                        }
+                    });
+                });
+                document.querySelectorAll('.btn-extreme').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const targetId = this.dataset.target;
+                        const value = parseInt(this.dataset.value);
+                        const input = document.getElementById(targetId);
+                        if (input) {
+                            input.value = value;
+                            input.dispatchEvent(new Event('input'));
+                        }
+                    });
+                });
+
+                document.getElementById('applyEditBtn').addEventListener('click', function() {
+                    const newRegular = parseInt(document.getElementById('editRegular').value) || 0;
+                    const newDaily = parseInt(document.getElementById('editDaily').value) || 0;
+                    const newWeekly = parseInt(document.getElementById('editWeekly').value) || 0;
+                    const newGold = parseInt(document.getElementById('editGold').value) || 0;
+                    const newBounty = parseInt(document.getElementById('editBounty').value) || 0;
+                    const newRaid = parseInt(document.getElementById('editRaid').value) || 0;
+                    const newDquest = document.getElementById('editDquest').checked ? 1 : 0;
+                    const newCalendar = document.getElementById('editCalendar') ? (document.getElementById('editCalendar').checked ? 1 : 0) : undefined;
+                    const newQb = document.getElementById('editQb') ? (document.getElementById('editQb').checked ? 1 : 0) : undefined;
+                    const newWquest = document.getElementById('editWquest') ? (document.getElementById('editWquest').checked ? 1 : 0) : undefined;
+
+                    dates.forEach(dateStr => {
+                        const currentData = getDayData(dateStr);
+                        const d = new Date(dateStr.split('-')[0], dateStr.split('-')[1]-1, dateStr.split('-')[2]);
+                        const dow = d.getDay();
+
+                        let reg = Math.min(10, Math.max(0, newRegular));
+                        let daily = Math.min(1, Math.max(0, newDaily));
+                        let gold = Math.min(25, Math.max(0, newGold));
+                        let bounty = Math.min(700, Math.max(0, newBounty));
+                        let raid = Math.min(50, Math.max(0, newRaid));
+
+                        const weekSumWithout = getWeekRaidSum(dateStr) - (currentData.raid || 0);
+                        if (weekSumWithout + raid > RAID_MAX_PER_WEEK) {
+                            raid = RAID_MAX_PER_WEEK - weekSumWithout;
+                            if (raid < 0) raid = 0;
+                        }
+
+                        let calendar = currentData.calendar !== undefined ? currentData.calendar : 0;
+                        let qb = currentData.qb !== undefined ? currentData.qb : 0;
+                        let wquest = currentData.wquest !== undefined ? currentData.wquest : 0;
+                        if (dow === 0) {
+                            if (newCalendar !== undefined) calendar = newCalendar;
+                            if (newQb !== undefined) qb = newQb;
+                            if (newWquest !== undefined) wquest = newWquest;
+                        }
+
+                        let dquest = newDquest;
+
+                        if (newWeekly === 1) {
+                            moveWeeklyToDate(dateStr, 1);
+                        } else {
+                            moveWeeklyToDate(dateStr, 0);
+                        }
+
+                        const afterWeeklyData = getDayData(dateStr);
+                        setDayData(dateStr, reg, daily, afterWeeklyData.weekly || 0, gold, bounty, raid, calendar, qb, dquest, wquest);
+                    });
+
+                    refreshAfterChange(dates[0]);
+                });
+
+                document.getElementById('cancelEditBtn').addEventListener('click', function() {
+                    if (multiSelected.length > 1) {
+                        showMultiSelectionPanel(multiSelected);
+                    } else {
+                        showEmptyPanel();
+                    }
+                });
+            }
+
+            // ---------- Вспомогательная функция для обновления ----------
+            function refreshAfterChange(dateStr) {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                renderCalendar(year, month);
+                if (selectedDate) {
+                    const cell = document.querySelector(`.day-cell[data-date="${selectedDate}"]`);
+                    if (cell) cell.classList.add('selected');
+                }
+                if (multiSelected.length === 1) {
+                    selectedDate = multiSelected[0];
+                    updatePanel(selectedDate);
+                } else if (multiSelected.length > 1) {
+                    showMultiSelectionPanel(multiSelected);
+                } else if (selectedDate) {
+                    updatePanel(selectedDate);
+                } else {
+                    showEmptyPanel();
+                }
+            }
+
+            // ---------- Выбор даты (один день) ----------
+            function selectDate(dateStr) {
+                selectedDate = dateStr;
+                multiSelected = [dateStr];
+                renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+                const cell = document.querySelector(`.day-cell[data-date="${dateStr}"]`);
+                if (cell) cell.classList.add('selected');
+                updatePanel(dateStr);
+            }
+
+            // ---------- Обновление панели (один день) ----------
+            function updatePanel(dateStr) {
+                const data = getDayData(dateStr);
+                const regular = data.regular || 0;
+                const daily = data.daily || 0;
+                const weekly = data.weekly || 0;
+                const gold = data.gold || 0;
+                const bounty = data.bounty || 0;
+                const raid = data.raid || 0;
+                const calendar = data.calendar !== undefined ? data.calendar : 0;
+                const qb = data.qb !== undefined ? data.qb : 0;
+                const dquest = data.dquest !== undefined ? data.dquest : 0;
+                const wquest = data.wquest !== undefined ? data.wquest : 0;
+                const parts = dateStr.split('-');
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                const dayOfWeek = d.getDay();
+                const points = calcDayPoints(regular, daily, weekly, gold, bounty, raid, calendar, qb, dquest, wquest, dayOfWeek);
+
+                const weekRaidSum = getWeekRaidSum(dateStr);
+                const raidRemaining = Math.max(0, RAID_MAX_PER_WEEK - weekRaidSum + raid);
+
+                panelDate.textContent = formatDisplayDate(dateStr);
+
+                function createInputGroup(id, value, min, max) {
+                    return `
+                        <div class="input-group">
+                            <button class="btn-extreme" data-target="${id}" data-value="0">0</button>
+                            <button class="btn-step" data-target="${id}" data-step="-1">−</button>
+                            <input type="number" id="${id}" min="${min}" max="${max}" value="${value}" />
+                            <button class="btn-step" data-target="${id}" data-step="1">+</button>
+                            <button class="btn-extreme" data-target="${id}" data-value="${max}">max</button>
+                        </div>
+                    `;
+                }
+
+                const isSunday = dayOfWeek === 0;
+
+                let dquestToggleHtml = `
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <span class="toggle-icon">🎯</span>
+                            <span class="toggle-label ${dquest ? '' : 'off'}">DQuest (ежедневный +5 TRR)</span>
+                        </div>
+                        <label class="toggle-switch-mini">
+                            <input type="checkbox" id="dquestToggle" ${dquest ? 'checked' : ''}>
+                            <span class="toggle-slider-mini"></span>
+                        </label>
+                    </div>
+                `;
+
+                let sundayTogglesHtml = '';
+                if (isSunday) {
+                    sundayTogglesHtml = `
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <span class="toggle-icon">📅</span>
+                                <span class="toggle-label ${calendar ? '' : 'off'}">Calendar бонус (+25 TRR)</span>
+                            </div>
+                            <label class="toggle-switch-mini">
+                                <input type="checkbox" id="calendarToggle" ${calendar ? 'checked' : ''}>
+                                <span class="toggle-slider-mini"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <span class="toggle-icon">🏅</span>
+                                <span class="toggle-label ${qb ? '' : 'off'}">QB бонус (+25 TRR)</span>
+                            </div>
+                            <label class="toggle-switch-mini">
+                                <input type="checkbox" id="qbToggle" ${qb ? 'checked' : ''}>
+                                <span class="toggle-slider-mini"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <span class="toggle-icon">⭐</span>
+                                <span class="toggle-label ${wquest ? '' : 'off'}">Weekly Quest (+15 TRR)</span>
+                            </div>
+                            <label class="toggle-switch-mini">
+                                <input type="checkbox" id="wquestToggle" ${wquest ? 'checked' : ''}>
+                                <span class="toggle-slider-mini"></span>
+                            </label>
+                        </div>
+                    `;
+                }
+
+                let resetButtonsHtml = `
+                    <div class="reset-buttons">
+                        <button class="reset-btn" id="resetDayBtn">🗑 Обнулить этот день</button>
+                        ${lastResetSnapshot && lastResetSnapshot.dates.length === 1 && lastResetSnapshot.dates[0] === dateStr ? `<button class="undo-btn" id="undoDayBtn">↩ Отменить обнуление</button>` : ''}
+                    </div>
+                `;
+
+                let html = resetButtonsHtml + dquestToggleHtml + sundayTogglesHtml;
+
+                html += `
+                    <div class="reward-card">
+                        <div class="reward-info">
+                            <span class="reward-icon">📅</span>
+                            <span class="reward-label">Regular Challenge <span class="reward-max">(макс. 10)</span></span>
+                        </div>
+                        ${createInputGroup('regularInput', regular, 0, 10)}
+                    </div>
+                    <div class="reward-card">
+                        <div class="reward-info">
+                            <span class="reward-icon">📅</span>
+                            <span class="reward-label">Daily Challenge <span class="reward-max">(макс. 1)</span></span>
+                        </div>
+                        ${createInputGroup('dailyInput', daily, 0, 1)}
+                    </div>
+                    <div class="reward-card">
+                        <div class="reward-info">
+                            <span class="reward-icon">📅</span>
+                            <span class="reward-label">Weekly Challenge <span class="reward-max">(макс. 1 за неделю)</span></span>
+                        </div>
+                        ${createInputGroup('weeklyInput', weekly, 0, 1)}
+                    </div>
+                    <div class="reward-card">
+                        <div class="reward-info">
+                            <span class="reward-icon">🪙</span>
+                            <span class="reward-label">Gold Shop <span class="reward-max">(макс. 25)</span></span>
+                        </div>
+                        ${createInputGroup('goldInput', gold, 0, 25)}
+                    </div>
+                    <div class="reward-card">
+                        <div class="reward-info">
+                            <span class="reward-icon">💰</span>
+                            <span class="reward-label">Bounty <span class="reward-max">(макс. 700, 10=1 TRR)</span></span>
+                        </div>
+                        ${createInputGroup('bountyInput', bounty, 0, 700)}
+                    </div>
+                    <div class="reward-card">
+                        <div class="reward-info">
+                            <span class="reward-icon">⚔️</span>
+                            <span class="reward-label">Raid Shop <span class="reward-max">(0-50 за неделю)</span></span>
+                        </div>
+                        ${createInputGroup('raidInput', raid, 0, Math.min(50, raidRemaining + raid))}
+                    </div>
+                    <div class="raid-progress">Использовано за неделю: ${weekRaidSum - raid + raid} / 50</div>
+                    <div class="weekly-hint">${weekly === 1 ? '✅ Weekly активен в этот день' : 'Установите 1, чтобы активировать в этот день'}</div>
+                    ${isSunday ? `<div class="sunday-bonus">✨ Бонусы воскресенья: ${calendar ? '+25 Calendar' : ''} ${calendar && qb ? '&' : ''} ${qb ? '+25 QB' : ''} ${qb && wquest ? '&' : ''} ${wquest ? '+15 Weekly Quest' : ''} ${(!calendar && !qb && !wquest) ? '⛔ все отключены' : ''}</div>` : ''}
+                    <div class="panel-total">
+                        <span class="total-label">🏅 Всего TRR (за день)</span>
+                        <span class="total-value" id="panelTotalValue">${points}</span>
+                    </div>
+                `;
+                panelContent.innerHTML = html;
+
+                // --- Обработчики для переключателей ---
+                const dquestToggle = document.getElementById('dquestToggle');
+                if (dquestToggle) {
+                    dquestToggle.addEventListener('change', function() {
+                        const newVal = this.checked ? 1 : 0;
+                        const currentData = getDayData(dateStr);
+                        setDayData(dateStr, currentData.regular, currentData.daily, currentData.weekly, currentData.gold, currentData.bounty, currentData.raid, currentData.calendar, currentData.qb, newVal, currentData.wquest);
+                        refreshAfterChange(dateStr);
+                    });
+                }
+
+                const calendarToggle = document.getElementById('calendarToggle');
+                if (calendarToggle) {
+                    calendarToggle.addEventListener('change', function() {
+                        const newVal = this.checked ? 1 : 0;
+                        const currentData = getDayData(dateStr);
+                        setDayData(dateStr, currentData.regular, currentData.daily, currentData.weekly, currentData.gold, currentData.bounty, currentData.raid, newVal, currentData.qb, currentData.dquest, currentData.wquest);
+                        refreshAfterChange(dateStr);
+                    });
+                }
+
+                const qbToggle = document.getElementById('qbToggle');
+                if (qbToggle) {
+                    qbToggle.addEventListener('change', function() {
+                        const newVal = this.checked ? 1 : 0;
+                        const currentData = getDayData(dateStr);
+                        setDayData(dateStr, currentData.regular, currentData.daily, currentData.weekly, currentData.gold, currentData.bounty, currentData.raid, currentData.calendar, newVal, currentData.dquest, currentData.wquest);
+                        refreshAfterChange(dateStr);
+                    });
+                }
+
+                const wquestToggle = document.getElementById('wquestToggle');
+                if (wquestToggle) {
+                    wquestToggle.addEventListener('change', function() {
+                        const newVal = this.checked ? 1 : 0;
+                        const currentData = getDayData(dateStr);
+                        setDayData(dateStr, currentData.regular, currentData.daily, currentData.weekly, currentData.gold, currentData.bounty, currentData.raid, currentData.calendar, currentData.qb, currentData.dquest, newVal);
+                        refreshAfterChange(dateStr);
+                    });
+                }
+
+                const resetDayBtn = document.getElementById('resetDayBtn');
+                if (resetDayBtn) {
+                    resetDayBtn.addEventListener('click', function() {
+                        resetDays([dateStr]);
+                    });
+                }
+
+                const undoDayBtn = document.getElementById('undoDayBtn');
+                if (undoDayBtn) {
+                    undoDayBtn.addEventListener('click', function() {
+                        undoReset();
+                    });
+                }
+
+                // --- Обработчики полей ввода ---
+                const regularInput = document.getElementById('regularInput');
+                const dailyInput = document.getElementById('dailyInput');
+                const weeklyInput = document.getElementById('weeklyInput');
+                const goldInput = document.getElementById('goldInput');
+                const bountyInput = document.getElementById('bountyInput');
+                const raidInput = document.getElementById('raidInput');
+
+                // Утилита для ограничения и обновления суммы
+                function clampAndUpdate(input, min, max, dateStr) {
+                    let val = parseInt(input.value);
+                    if (isNaN(val)) val = 0;
+                    if (val > max) val = max;
+                    if (val < min) val = min;
+                    input.value = val;
+                    // Обновляем сумму на лету
+                    const currentData = getDayData(dateStr);
+                    // Берём текущие значения остальных полей из input'ов
+                    const regVal = parseInt(regularInput.value) || 0;
+                    const dailyVal = parseInt(dailyInput.value) || 0;
+                    const weeklyVal = parseInt(weeklyInput.value) || 0;
+                    const goldVal = parseInt(goldInput.value) || 0;
+                    const bountyVal = parseInt(bountyInput.value) || 0;
+                    const raidVal = parseInt(raidInput.value) || 0;
+                    const calendarVal = currentData.calendar !== undefined ? currentData.calendar : 0;
+                    const qbVal = currentData.qb !== undefined ? currentData.qb : 0;
+                    const dquestVal = currentData.dquest !== undefined ? currentData.dquest : 0;
+                    const wquestVal = currentData.wquest !== undefined ? currentData.wquest : 0;
+                    const newPoints = calcDayPoints(regVal, dailyVal, weeklyVal, goldVal, bountyVal, raidVal, calendarVal, qbVal, dquestVal, wquestVal, dayOfWeek);
+                    document.getElementById('panelTotalValue').textContent = newPoints;
+                }
+
+                // Сохранение при потере фокуса
+                function saveAndUpdate() {
+                    let regVal = parseInt(regularInput.value) || 0;
+                    let dailyVal = parseInt(dailyInput.value) || 0;
+                    let weeklyVal = parseInt(weeklyInput.value) || 0;
+                    let goldVal = parseInt(goldInput.value) || 0;
+                    let bountyVal = parseInt(bountyInput.value) || 0;
+                    let raidVal = parseInt(raidInput.value) || 0;
+                    if (regVal > 10) regVal = 10;
+                    if (regVal < 0) regVal = 0;
+                    if (dailyVal > 1) dailyVal = 1;
+                    if (dailyVal < 0) dailyVal = 0;
+                    if (weeklyVal > 1) weeklyVal = 1;
+                    if (weeklyVal < 0) weeklyVal = 0;
+                    if (goldVal > 25) goldVal = 25;
+                    if (goldVal < 0) goldVal = 0;
+                    if (bountyVal > 700) bountyVal = 700;
+                    if (bountyVal < 0) bountyVal = 0;
+
+                    const weekSumWithout = getWeekRaidSum(dateStr) - (getDayData(dateStr).raid || 0);
+                    const maxRaid = Math.min(50, RAID_MAX_PER_WEEK - weekSumWithout);
+                    if (raidVal > maxRaid) raidVal = maxRaid;
+                    if (raidVal < 0) raidVal = 0;
+                    raidInput.value = raidVal;
+
+                    const currentData = getDayData(dateStr);
+                    const calendarVal = currentData.calendar !== undefined ? currentData.calendar : 0;
+                    const qbVal = currentData.qb !== undefined ? currentData.qb : 0;
+                    const dquestVal = currentData.dquest !== undefined ? currentData.dquest : 0;
+                    const wquestVal = currentData.wquest !== undefined ? currentData.wquest : 0;
+                    setDayData(dateStr, regVal, dailyVal, 0, goldVal, bountyVal, raidVal, calendarVal, qbVal, dquestVal, wquestVal);
+                    moveWeeklyToDate(dateStr, weeklyVal);
+
+                    refreshAfterChange(dateStr);
+                }
+
+                // input — ограничиваем и обновляем сумму
+                regularInput.addEventListener('input', function() {
+                    clampAndUpdate(this, 0, 10, dateStr);
+                });
+                dailyInput.addEventListener('input', function() {
+                    clampAndUpdate(this, 0, 1, dateStr);
+                });
+                weeklyInput.addEventListener('input', function() {
+                    clampAndUpdate(this, 0, 1, dateStr);
+                });
+                goldInput.addEventListener('input', function() {
+                    clampAndUpdate(this, 0, 25, dateStr);
+                });
+                bountyInput.addEventListener('input', function() {
+                    clampAndUpdate(this, 0, 700, dateStr);
+                });
+                // Raid — max динамический
+                raidInput.addEventListener('input', function() {
+                    const maxRaid = Math.min(50, RAID_MAX_PER_WEEK - getWeekRaidSum(dateStr) + (getDayData(dateStr).raid || 0));
+                    clampAndUpdate(this, 0, maxRaid, dateStr);
+                });
+
+                // blur — сохранение
+                regularInput.addEventListener('blur', saveAndUpdate);
+                dailyInput.addEventListener('blur', saveAndUpdate);
+                weeklyInput.addEventListener('blur', saveAndUpdate);
+                goldInput.addEventListener('blur', saveAndUpdate);
+                bountyInput.addEventListener('blur', saveAndUpdate);
+                raidInput.addEventListener('blur', saveAndUpdate);
+
+                // Кнопки + и -
+                document.querySelectorAll('.btn-step').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const targetId = this.dataset.target;
+                        const step = parseInt(this.dataset.step);
+                        const input = document.getElementById(targetId);
+                        if (input) {
+                            let val = parseInt(input.value) || 0;
+                            const min = parseInt(input.min) || 0;
+                            const max = parseInt(input.max) || 100;
+                            val = Math.min(max, Math.max(min, val + step));
+                            input.value = val;
+                            saveAndUpdate();
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.btn-extreme').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const targetId = this.dataset.target;
+                        const value = parseInt(this.dataset.value);
+                        const input = document.getElementById(targetId);
+                        if (input) {
+                            input.value = value;
+                            saveAndUpdate();
+                        }
+                    });
+                });
+            }
+
+            function showEmptyPanel() {
+                panelDate.textContent = 'Выберите день';
+                panelContent.innerHTML = `<div class="panel-empty">Нажмите на день в календаре</div>`;
+                document.querySelectorAll('.day-cell').forEach(c => {
+                    c.classList.remove('selected');
+                });
+            }
+
+            // ---------- Отмена выделения по ESC ----------
+            function clearSelection() {
+                multiSelected = [];
+                selectedDate = null;
+                lastResetSnapshot = null;
+                renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+                showEmptyPanel();
+            }
+
+            // ---------- Навигация ----------
+            function changeMonth(delta) {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                const newDate = new Date(year, month + delta, 1);
+                currentDate = newDate;
+                multiSelected = [];
+                selectedDate = null;
+                lastResetSnapshot = null;
+                renderCalendar(newDate.getFullYear(), newDate.getMonth());
+                showEmptyPanel();
+            }
+
+            // ---------- Инициализация ----------
+            function init() {
+                const now = new Date();
+                currentDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+
+                const today = new Date();
+                const todayStr = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+                multiSelected = [todayStr];
+                selectedDate = todayStr;
+                renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+                const cell = document.querySelector(`.day-cell[data-date="${todayStr}"]`);
+                if (cell) cell.classList.add('selected');
+                updatePanel(todayStr);
+
+                prevMonthBtn.addEventListener('click', () => changeMonth(-1));
+                nextMonthBtn.addEventListener('click', () => changeMonth(1));
+
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        if (multiSelected.length > 0 || selectedDate) {
+                            clearSelection();
+                            e.preventDefault();
+                        }
+                    }
+                });
+            }
+
+            init();
+        })();
+    </script>
+</body>
+</html>
